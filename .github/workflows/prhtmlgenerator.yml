@@ -50,7 +50,6 @@ jobs:
           body="${body//$'\r'/'%0D'}";
           echo "bodylength=${#body}" >> $GITHUB_OUTPUT
       - name: Find Comment
-        if: ${{ steps.testrun.outputs.bodylength > 130 }}
         uses: peter-evans/find-comment@v2
         id: fc
         with:
@@ -58,7 +57,6 @@ jobs:
           comment-author: 'github-actions[bot]'
           body-includes: Pull request artifacts
       - name: Create or update comment
-        if: ${{ steps.testrun.outputs.bodylength > 130 }}
         uses: peter-evans/create-or-update-comment@v2
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
