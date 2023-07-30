@@ -39,6 +39,9 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           pip install -r requirements.txt
+      - name: TESTTEST
+        run: |
+          echo test
       - name: Run bridge tests
         id: testrun
         run: |
