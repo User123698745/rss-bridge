@@ -6,7 +6,7 @@ class FallGuysBridge extends BridgeAbstract
     const NAME = 'Fall Guys';
     const BASE_URI = 'https://www.fallguys.com';
     const CACHE_TIMEOUT = 600; // 10min
-    const DESCRIPTION = 'News from the Fall Guys website';
+    const DESCRIPTION = 'News from the Fall Guys website test';
     const DEFAULT_LOCALE = 'en-US';
     const PARAMETERS = [
         [
