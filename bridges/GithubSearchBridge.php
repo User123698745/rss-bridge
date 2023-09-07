@@ -6,7 +6,7 @@ class GithubSearchBridge extends BridgeAbstract
     const NAME = 'Github Repositories Search';
     const BASE_URI = 'https://github.com';
     const URI = self::BASE_URI . '/search';
-    const CACHE_TIMEOUT = 600; // 10min
+    const CACHE_TIMEOUT = 900; // 15min
     const DESCRIPTION = 'Returns a specified repositories search (sorted by recently updated)';
     const PARAMETERS = [ [
         's' => [
