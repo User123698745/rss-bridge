@@ -143,7 +143,11 @@ function getContents(
 
     $cache = RssBridge::getCache();
     $cache->setScope('server');
-    $cache->setKey([$url]);
+    if (isset($curlOptions[CURLOPT_POSTFIELDS])) {
+        $cache->setKey([$url, $curlOptions[CURLOPT_POSTFIELDS]]);
+    } else {
+        $cache->setKey([$url]);
+    }
 
     if (!Debug::isEnabled() && $cache->getTime() && $cache->loadData(86400 * 7)) {
         $config['if_not_modified_since'] = $cache->getTime();
@@ -177,28 +181,30 @@ function getContents(
             $response['body'] = $cache->loadData(86400 * 7);
             break;
         default:
-            $exceptionMessage = sprintf(
-                '%s resulted in %s %s %s',
-                $url,
-                $response['code'],
-                Response::STATUS_CODES[$response['code']] ?? '',
-                // If debug, include a part of the response body in the exception message
-                Debug::isEnabled() ? mb_substr($response['body'], 0, 500) : '',
-            );
+            if ($response['error']) {
+                $exceptionMessage = sprintf(
+                    '%s resulted in %s %s %s',
+                    $url,
+                    $response['code'],
+                    Response::STATUS_CODES[$response['code']] ?? '',
+                    // If debug, include a part of the response body in the exception message
+                    Debug::isEnabled() ? mb_substr($response['body'], 0, 500) : '',
+                );
 
-            // The following code must be extracted if it grows too much
-            $cloudflareTitles = [
-                '<title>Just a moment...',
-                '<title>Please Wait...',
-                '<title>Attention Required!',
-                '<title>Security | Glassdoor',
-            ];
-            foreach ($cloudflareTitles as $cloudflareTitle) {
-                if (str_contains($response['body'], $cloudflareTitle)) {
-                    throw new CloudFlareException($exceptionMessage, $response['code']);
+                // The following code must be extracted if it grows too much
+                $cloudflareTitles = [
+                    '<title>Just a moment...',
+                    '<title>Please Wait...',
+                    '<title>Attention Required!',
+                    '<title>Security | Glassdoor',
+                ];
+                foreach ($cloudflareTitles as $cloudflareTitle) {
+                    if (str_contains($response['body'], $cloudflareTitle)) {
+                        throw new CloudFlareException($exceptionMessage, $response['code']);
+                    }
                 }
+                throw new HttpException(trim($exceptionMessage), $response['code']);
             }
-            throw new HttpException(trim($exceptionMessage), $response['code']);
     }
     if ($returnFull === true) {
         // For legacy reasons, use content instead of body
@@ -232,6 +238,7 @@ final class CurlHttpClient implements HttpClient
         $config = array_merge($defaults, $config);
 
         $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_FAILONERROR, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_MAXREDIRS, $config['max_redirections']);
@@ -302,31 +309,32 @@ final class CurlHttpClient implements HttpClient
         while (true) {
             $attempts++;
             $data = curl_exec($ch);
-            if ($data !== false) {
+            $curlErrorNumber = curl_errno($ch);
+            if ($curlErrorNumber === CURLE_OK || $curlErrorNumber === CURLE_HTTP_RETURNED_ERROR) {
                 // The network call was successful, so break out of the loop
                 break;
             }
             if ($attempts > $config['retries']) {
                 // Finally give up
-                $curl_error = curl_error($ch);
-                $curl_errno = curl_errno($ch);
+                $curlErrorMessage = curl_error($ch);
                 throw new HttpException(sprintf(
                     'cURL error %s: %s (%s) for %s',
-                    $curl_error,
-                    $curl_errno,
+                    $curlErrorMessage,
+                    $curlErrorNumber,
                     'https://curl.haxx.se/libcurl/c/libcurl-errors.html',
                     $url
                 ));
             }
         }
 
-        $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $statusCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         return [
             'code' => $statusCode,
             'status_lines' => $responseStatusLines,
             'headers' => $responseHeaders,
             'body' => $data,
+            'error' => $curlErrorNumber !== CURLE_OK,
         ];
     }
 }
