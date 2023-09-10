@@ -119,20 +119,64 @@ final class GraphQLEndpoint
      */
     public function executeQuery(GraphQLQuery $query, array $variables = []): object
     {
-        $queryJson = json_encode($query->build($variables));
-        $curlOptions = [
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $queryJson,
-            CURLOPT_FAILONERROR => false,
-        ];
-        $resultJson = getContents($this->url, $this->headers, $curlOptions);
-        $result = json_decode($resultJson);
+        return self::internalExecuteQuery($query, $variables);
+    }
+
+    /**
+     * Gets data from the GraphQL endpoint using the given GraphQL query. The result gets cached and re-used for subsequent calls until the cache duration elapsed.
+     * @param GraphQLQuery $query The GraphQL query to be executed.
+     * @param array $variables (optional) A list of variables used by the GraphQL query. The list gets merged with the predefined list of variables from the given query.
+     * @param int $cacheTimeout (optional) Cache duration in seconds (default: 24 hours).
+     * @return object The data of the query result as an appropriate PHP type.
+     * @throws GraphQLException When the query result contains errors or the response content is invalid.
+     */
+    public function executeQueryWithCache(GraphQLQuery $query, array $variables = [], $cacheTimeout = 86400): object
+    {
+        return self::internalExecuteQuery($query, $variables, 'pages', $cacheTimeout);
+    }
+
+    /**
+     * Internal function for executeQuery and executeQueryWithCache.
+     */
+    private function internalExecuteQuery(GraphQLQuery $query, array $variables = [], string $cacheScope = null, $cacheTimeout = 86400): object
+    {
+        $queryData = $query->build($variables);
+
+        $result = null;
+
+        if (isset($cacheScope)) {
+            $cache = RssBridge::getCache();
+            $cache->setScope($cacheScope);
+            $cache->setKey([$this->url, $queryData]);
+            $resultJson = $cache->loadData($cacheTimeout);
+            $result = json_decode($resultJson ?? '');
+        }
+
         if (!isset($result)) {
-            throw new \GraphQLException(sprintf('invalid response content (url: %s)', $this->url));
+            $queryJson = json_encode($queryData);
+            $curlOptions = [
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => $queryJson,
+                CURLOPT_FAILONERROR => false,
+            ];
+            $resultJson = getContents($this->url, $this->headers, $curlOptions);
+
+            $result = json_decode($resultJson);
+            if (!isset($result)) {
+                throw new \GraphQLException(sprintf('invalid response content (url: %s)', $this->url));
+            }
+            if (isset($result->errors)) {
+                throw new \GraphQLException(sprintf('result contains errors (query: %s):', $query->getName()), $result->errors);
+            }
+
+            if (isset($cacheScope)) {
+                $cache = RssBridge::getCache();
+                $cache->setScope($cacheScope);
+                $cache->setKey([$this->url, $queryData]);
+                $cache->saveData($resultJson);
+            }
         }
-        if (isset($result->errors)) {
-            throw new \GraphQLException(sprintf('result contains errors (query: %s):', $query->getName()), $result->errors);
-        }
+
         $data = $result->data;
         if (isset($result->extensions) && !isset($data->extensions)) {
             $data->extensions = $result->extensions;

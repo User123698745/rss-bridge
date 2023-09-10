@@ -68,7 +68,7 @@ $html = getSimpleHTMLDOMCached('your URI', 86400); // Duration 24h
 **Notice:** Due to the current implementation a value greater than 86400 seconds (24 hours) will not work as the cache is purged every 24 hours automatically.
 
 # GraphQLEndpoint executeQuery
-The `GraphQLEndpoint` is a helper class for interacting with a GraphQL endpoint. The class function `executeQuery` is a wrapper around `getContents` for requesting data from that GraphQL endpoint using the given `GraphQLQuery` object. When the `errors` property in the query result is set, a `GraphQLException` gets thrown. Otherwise, the `data` property of the query result gets returned as an appropriate PHP type.
+`GraphQLEndpoint` is a helper class for interacting with a GraphQL api endpoint. The class function `executeQuery` is a wrapper around `getContents` for requesting data from that GraphQL endpoint using the given `GraphQLQuery` object. When the `errors` property in the query result is set, a `GraphQLException` gets thrown. Otherwise, the `data` property of the query result gets returned as an appropriate PHP type.
 ```PHP
 $endpoint = new GraphQLEndpoint('your URI');
 $query = new GraphQLQuery(
@@ -88,6 +88,9 @@ $data1 = $endpoint->executeQuery($query, ['type' => 1]);
 $data2 = $endpoint->executeQuery($query, ['type' => 2]);
 $items = array_merge($data1->items, $data2->items);
 ```
+
+For query result data that is very unlikely to change between consecutive requests to **RSS-Bridge**, you should use the `executeQueryWithCache` function. This function does the same as the `executeQuery` function, except that the result return by the GraphQL query is stored in a cache and loaded from cache on the next request if the specified cache duration was not reached. The cache duration can be configured by the `cacheTimeout` parameter (default is 24 hours / 86400 seconds).
+
 More information about GraphQL:
 - https://graphql.org
 - https://graphql.org/learn/serving-over-http
