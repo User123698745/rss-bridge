@@ -67,6 +67,32 @@ $html = getSimpleHTMLDOMCached('your URI', 86400); // Duration 24h
 
 **Notice:** Due to the current implementation a value greater than 86400 seconds (24 hours) will not work as the cache is purged every 24 hours automatically.
 
+# GraphQLEndpoint executeQuery
+The `GraphQLEndpoint` is a helper class for interacting with a GraphQL endpoint. The class function `executeQuery` is a wrapper around `getContents` for requesting data from that GraphQL endpoint using the given `GraphQLQuery` object. When the `errors` property in the query result is set, a `GraphQLException` gets thrown. Otherwise, the `data` property of the query result gets returned as an appropriate PHP type.
+```PHP
+$endpoint = new GraphQLEndpoint('your URI');
+$query = new GraphQLQuery(
+    <<<'QUERY'
+    query GetItems($language: Language!, $type: Int, $count: Int) {
+        items(language: $language, type: $type, count: $count) {
+            title
+        }
+    }
+    QUERY,
+    [
+        'language' => 'en',
+        'count' => 20
+    ]
+);
+$data1 = $endpoint->executeQuery($query, ['type' => 1]);
+$data2 = $endpoint->executeQuery($query, ['type' => 2]);
+$items = array_merge($data1->items, $data2->items);
+```
+More information about GraphQL:
+- https://graphql.org
+- https://graphql.org/learn/serving-over-http
+- https://graphql.org/learn/queries
+
 # returnError
 **Notice:** Whenever possible make use of [`returnClientError`](#returnclienterror) or [`returnServerError`](#returnservererror)
 
