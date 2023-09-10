@@ -162,63 +162,39 @@ class PepperBridgeAbstract extends BridgeAbstract
         }
         $threadID = $matches[1];
 
-        $url = $this->i8n('bridge-uri') . 'graphql';
-
-        // Get Cookies header to do the query
-        $cookies = $this->getCookies($url);
-
-        // GraphQL String
-        // This was extracted from https://www.dealabs.com/assets/js/modern/common_211b99.js
-        // This string was extracted during a Website visit, and minified using this neat tool :
-        // https://codepen.io/dangodev/pen/Baoqmoy
-        $graphqlString = <<<'HEREDOC'
-query comments($filter:CommentFilter!,$limit:Int,$page:Int){comments(filter:$filter,limit:$limit,page:$page){
-items{...commentFields}pagination{...paginationFields}}}fragment commentFields on Comment{commentId threadId url 
-preparedHtmlContent user{...userMediumAvatarFields...userNameFields...userPersonaFields bestBadge{...badgeFields}}
-reactionCounts{type count}deletable currentUserReaction{type}reported reportable source status createdAt updatedAt 
-ignored popular deletedBy{username}notes{content createdAt user{username}}lastEdit{reason timeAgo userId}}fragment 
-userMediumAvatarFields on User{userId isDeletedOrPendingDeletion imageUrls(slot:"default",variations:
-["user_small_avatar"])}fragment userNameFields on User{userId username isUserProfileHidden isDeletedOrPendingDeletion}
-fragment userPersonaFields on User{persona{type text}}fragment badgeFields on Badge{badgeId level{...badgeLevelFields}}
-fragment badgeLevelFields on BadgeLevel{key name description}fragment paginationFields on Pagination{count current last
- next previous size order}
-HEREDOC;
-
-        // Construct the JSON object to send to the Website
-        $queryArray = [
-            'query' => $graphqlString,
-            'variables' => [
+        // GraphQL query
+        $query = new GraphQLQuery(
+            <<<'QUERY'
+            query comments($filter: CommentFilter!, $limit: Int, $page: Int) {
+                comments(filter: $filter, limit: $limit, page: $page) {
+                    items {
+                        commentId
+                        createdAt
+                        url
+                        preparedHtmlContent
+                        user {
+                            username
+                        }
+                    }
+                }
+            }
+            QUERY,
+            [
                 'filter' => [
                     'threadId' => [
-                        'eq' => $threadID,
+                        'eq' => $threadID
                     ],
                     'order' => [
-                        'direction' => 'Descending',
-                    ],
-
+                        'direction' => 'Descending'
+                    ]
                 ],
-                'page' => 1,
-            ],
-        ];
-        $queryJSON = json_encode($queryArray);
+                'page' => 1
+            ]
+        );
 
-        // HTTP headers
-        $header = [
-            'Content-Type: application/json',
-            'Accept: application/json, text/plain, */*',
-            'X-Pepper-Txn: threads.show',
-            'X-Request-Type: application/vnd.pepper.v1+json',
-            'X-Requested-With: XMLHttpRequest',
-            $cookies,
-        ];
-        // CURL Options
-        $opts = [
-            CURLOPT_POST => 1,
-            CURLOPT_POSTFIELDS => $queryJSON
-        ];
-        $json = getContents($url, $header, $opts);
-        $objects = json_decode($json);
-        foreach ($objects->data->comments->items as $comment) {
+        $data = self::getGraphQLEndpoint()->executeQuery($query);
+
+        foreach ($data->comments->items as $comment) {
             $item = [];
             $item['uri'] = $comment->url;
             $item['title'] = $comment->user->username . ' - ' . $comment->createdAt;
@@ -242,16 +218,36 @@ HEREDOC;
     }
 
     /**
+     * Get the GraphQLEndpoint instance
+     * @return GraphQLEndpoint
+     */
+    private function getGraphQLEndpoint(): GraphQLEndpoint
+    {
+        $url = $this->i8n('bridge-uri') . 'graphql';
+        $cookiesHeaderValue = $this->getCookiesHeaderValue($url);
+        return new GraphQLEndpoint(
+            $url,
+            [
+                'X-Pepper-Txn: threads.show',
+                'X-Request-Type: application/vnd.pepper.v1+json',
+                'X-Requested-With: XMLHttpRequest',
+                "Cookie: $cookiesHeaderValue",
+            ]
+        );
+    }
+
+    /**
      * Extract the cookies obtained from the URL
      * @return array the array containing the cookies set by the URL
      */
-    private function getCookies($url)
+    private function getCookiesHeaderValue($url)
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         // get headers too with this line
         curl_setopt($ch, CURLOPT_HEADER, 1);
         $result = curl_exec($ch);
+        curl_close($ch);
         // get cookie
         // multi-cookie variant contributed by @Combuster in comments
         preg_match_all('/^Set-Cookie:\s*([^;]*)/mi', $result, $matches);
@@ -260,11 +256,11 @@ HEREDOC;
             parse_str($item, $cookie);
             $cookies = array_merge($cookies, $cookie);
         }
-        $header = 'Cookie: ';
+        $headerValue = '';
         foreach ($cookies as $name => $content) {
-            $header .= $name . '=' . $content . '; ';
+            $headerValue .= $name . '=' . $content . '; ';
         }
-        return $header;
+        return $headerValue;
     }
 
     /**
