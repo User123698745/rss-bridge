@@ -76,6 +76,41 @@ This function allows to specify the cache duration with the second parameter.
 $html = getSimpleHTMLDOMCached('your URI', 86400); // Duration 24h
 ```
 
+# GraphQLEndpoint executeQuery
+`GraphQLEndpoint` is a helper class for interacting with a GraphQL api endpoint. The class function **executeQuery**
+is a wrapper around `getContents` for requesting data from that GraphQL endpoint using the given `GraphQLQuery` object.
+When the `errors` property in the query result is set, a `GraphQLException` gets thrown.
+Otherwise, the `data` property of the query result gets returned as an appropriate PHP type.
+```PHP
+$endpoint = new GraphQLEndpoint('your URI');
+$query = new GraphQLQuery(
+    <<<'QUERY'
+    query GetItems($language: Language!, $type: Int, $count: Int) {
+        items(language: $language, type: $type, count: $count) {
+            title
+        }
+    }
+    QUERY,
+    [
+        'language' => 'en',
+        'count' => 20
+    ]
+);
+$data1 = $endpoint->executeQuery($query, ['type' => 1]);
+$data2 = $endpoint->executeQuery($query, ['type' => 2]);
+$items = array_merge($data1->items, $data2->items);
+```
+
+For query result data which is unlikely to change between consecutive requests to **RSS-Bridge**,
+you should use the **executeQueryWithCache** function. This function does the same as the `executeQuery` function,
+except that the result returned by the GraphQL query is stored in a cache and loaded from cache on the next request
+if the specified cache duration was not reached. The cache duration can be configured by the `cacheDuration` parameter (default is 24 hours / 86400 seconds).
+
+More information about GraphQL:
+- https://graphql.org
+- https://graphql.org/learn/serving-over-http
+- https://graphql.org/learn/queries
+
 # returnClientError
 The `returnClientError` function aborts execution of the current bridge
 and returns the given error message with error code **400**:
