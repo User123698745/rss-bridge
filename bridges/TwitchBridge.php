@@ -47,50 +47,52 @@ class TwitchBridge extends BridgeAbstract
 
     public function collectData()
     {
-        $query = <<<'EOD'
-query VODList($channel: String!, $types: [BroadcastType!]) {
-  user(login: $channel) {
-    displayName
-    videos(types: $types, sort: TIME) {
-      edges {
-        node {
-          id
-          title
-          publishedAt
-          lengthSeconds
-          viewCount
-          thumbnailURLs(width: 640, height: 360)
-          previewThumbnailURL(width: 640, height: 360)
-          description
-          tags
-          contentTags {
-            isLanguageTag
-            localizedName
-          }
-          game {
-            displayName
-          }
-          moments(momentRequestType: VIDEO_CHAPTER_MARKERS) {
-            edges {
-              node {
-                description
-                positionMilliseconds
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-EOD;
         $channel = $this->getInput('channel');
         $type = $this->getInput('type');
-        $variables = [
-            'channel' => $channel,
-            'types' => self::BROADCAST_TYPES[$type]
-        ];
-        $data = $this->apiRequest($query, $variables);
+        $query = new GraphQLQuery(
+            <<<'QUERY'
+            query VODList($channel: String!, $types: [BroadcastType!]) {
+                user(login: $channel) {
+                    displayName
+                    videos(types: $types, sort: TIME) {
+                        edges {
+                            node {
+                                id
+                                title
+                                publishedAt
+                                lengthSeconds
+                                viewCount
+                                thumbnailURLs(width: 640, height: 360)
+                                previewThumbnailURL(width: 640, height: 360)
+                                description
+                                tags
+                                contentTags {
+                                    isLanguageTag
+                                    localizedName
+                                }
+                                game {
+                                    displayName
+                                }
+                                moments(momentRequestType: VIDEO_CHAPTER_MARKERS) {
+                                    edges {
+                                        node {
+                                            description
+                                            positionMilliseconds
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            QUERY,
+            [
+                'channel' => $channel,
+                'types' => self::BROADCAST_TYPES[$type]
+            ]
+        );
+        $data = self::getGraphQLEndpoint()->executeQuery($query);
         if ($data->user === null) {
             throw new \Exception(sprintf('Unable to find channel `%s`', $channel));
         }
@@ -205,37 +207,18 @@ EOD;
         );
     }
 
-    // GraphQL: https://graphql.org/
-    // Tool for developing/testing queries: https://github.com/skevy/graphiql-app
-    private function apiRequest($query, $variables)
+    private function getGraphQLEndpoint(): GraphQLEndpoint
     {
-        $request = [
-            'query' => $query,
-            'variables' => $variables
-        ];
         /**
          * Official instructions for obtaining your own client ID can be found here:
          * https://dev.twitch.tv/docs/v5/#getting-a-client-id
          */
-        $header = [
-            'Client-ID: kimne78kx3ncx6brgo4mv6wki5h1ko'
-        ];
-        $opts = [
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($request)
-        ];
-
-        Logger::debug("Sending GraphQL query:\n" . $query);
-        Logger::debug("Sending GraphQL variables:\n" . json_encode($variables, JSON_PRETTY_PRINT));
-        $response = json_decode(getContents('https://gql.twitch.tv/gql', $header, $opts));
-        Logger::debug("Got GraphQL response:\n" . json_encode($response, JSON_PRETTY_PRINT));
-
-        if (isset($response->errors)) {
-            $messages = array_column($response->errors, 'message');
-            throw new \Exception(sprintf('twitch api: `%s`', implode("\n", $messages)));
-        }
-
-        return $response->data;
+        return new GraphQLEndpoint(
+            'https://gql.twitch.tv/gql',
+            [
+                'Client-ID: kimne78kx3ncx6brgo4mv6wki5h1ko'
+            ]
+        );
     }
 
     public function getName()
