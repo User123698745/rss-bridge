@@ -53,6 +53,9 @@ function getContents(
 
     $cache = RssBridge::getCache();
     $cacheKey = 'server_' . $url;
+    if (isset($curlOptions[CURLOPT_POSTFIELDS])) {
+        $cacheKey = $cacheKey . '_' . md5(json_encode($curlOptions[CURLOPT_POSTFIELDS]));
+    }
 
     /** @var Response $cachedResponse */
     $cachedResponse = $cache->get($cacheKey);
@@ -66,6 +69,32 @@ function getContents(
     }
 
     $response = $httpClient->request($url, $config);
+
+    if ($response->hasFailed() && ($curlOptions[CURLOPT_FAILONERROR] ?? true)) {
+        $exceptionMessage = sprintf(
+            '%s resulted in %s %s %s',
+            $url,
+            $response->getCode(),
+            $response->getStatusLine(),
+            // If debug, include a part of the response body in the exception message
+            Debug::isEnabled() ? mb_substr($response->getBody(), 0, 500) : '',
+        );
+
+        // The following code must be extracted if it grows too much
+        $cloudflareTitles = [
+            '<title>Just a moment...',
+            '<title>Please Wait...',
+            '<title>Attention Required!',
+            '<title>Security | Glassdoor',
+        ];
+        foreach ($cloudflareTitles as $cloudflareTitle) {
+            if (str_contains($response->getBody(), $cloudflareTitle)) {
+                throw new CloudFlareException($exceptionMessage, $response->getCode());
+            }
+        }
+
+        throw new HttpException(trim($exceptionMessage), $response->getCode());
+    }
 
     switch ($response->getCode()) {
         case 200:
@@ -91,30 +120,8 @@ function getContents(
             // Not Modified
             $response = $response->withBody($cachedResponse->getBody());
             break;
-        default:
-            $exceptionMessage = sprintf(
-                '%s resulted in %s %s %s',
-                $url,
-                $response->getCode(),
-                $response->getStatusLine(),
-                // If debug, include a part of the response body in the exception message
-                Debug::isEnabled() ? mb_substr($response->getBody(), 0, 500) : '',
-            );
-
-            // The following code must be extracted if it grows too much
-            $cloudflareTitles = [
-                '<title>Just a moment...',
-                '<title>Please Wait...',
-                '<title>Attention Required!',
-                '<title>Security | Glassdoor',
-            ];
-            foreach ($cloudflareTitles as $cloudflareTitle) {
-                if (str_contains($response->getBody(), $cloudflareTitle)) {
-                    throw new CloudFlareException($exceptionMessage, $response->getCode());
-                }
-            }
-            throw new HttpException(trim($exceptionMessage), $response->getCode());
     }
+
     if ($returnFull === true) {
         return [
             'code'      => $response->getCode(),

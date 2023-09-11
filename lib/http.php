@@ -68,6 +68,9 @@ final class CurlHttpClient implements HttpClient
             throw new \Exception('Tried to set an illegal curl option');
         }
 
+        // always ignore status code and return data. instead validate outside of this function using response->hasFailed()
+        curl_setopt($ch, CURLOPT_FAILONERROR, false);
+
         if ($config['if_not_modified_since']) {
             curl_setopt($ch, CURLOPT_TIMEVALUE, $config['if_not_modified_since']);
             curl_setopt($ch, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
@@ -209,6 +212,11 @@ final class Response
     public function getStatusLine(): string
     {
         return self::STATUS_CODES[$this->code] ?? '';
+    }
+
+    public function hasFailed()
+    {
+        return $this->code >= 400;
     }
 
     public function getHeaders()
