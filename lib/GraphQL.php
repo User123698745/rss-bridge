@@ -9,7 +9,7 @@ final class GraphQLException extends HttpException
      * @param string $message The exception message.
      * @param array $errors (optional) The list of errors from a query result.
      */
-    public function __construct(string $message, array $errors = [])
+    public function __construct(int $statusCode, string $message, array $errors = [])
     {
         $errorToString = function (object $error): string {
             $errorMessage = $error->message;
@@ -24,7 +24,7 @@ final class GraphQLException extends HttpException
             array_map($errorToString, $errors)
         );
         $message = implode("\n", $messages);
-        parent::__construct($message);
+        parent::__construct($message, $statusCode);
     }
 }
 
@@ -158,14 +158,15 @@ final class GraphQLEndpoint
                 CURLOPT_POSTFIELDS => $queryJson,
                 CURLOPT_FAILONERROR => false,
             ];
-            $resultJson = getContents($this->url, $this->headers, $curlOptions);
+            $response = getContents($this->url, $this->headers, $curlOptions, true);
+            $resultJson = $response['content'];
 
             $result = json_decode($resultJson);
             if (!isset($result)) {
-                throw new \GraphQLException(sprintf('invalid response content (url: %s)', $this->url));
+                throw new \GraphQLException($response['code'], sprintf('invalid response content (url: %s)', $this->url));
             }
             if (isset($result->errors)) {
-                throw new \GraphQLException(sprintf('result contains errors (query: %s):', $query->getName()), $result->errors);
+                throw new \GraphQLException($response['code'], sprintf('result contains errors (query: %s):', $query->getName()), $result->errors);
             }
 
             if (isset($cacheKey)) {
