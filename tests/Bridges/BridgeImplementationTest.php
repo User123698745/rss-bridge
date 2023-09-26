@@ -221,7 +221,7 @@ class BridgeImplementationTest extends TestCase
     public function dataBridgesProvider()
     {
         $bridges = [];
-        foreach (glob(__DIR__ . '/../../bridges/*Bridge.php') as $path) {
+        foreach (glob(__DIR__ . '/../../bridges/*Bridge.php') as $path) { //test
             $bridges[basename($path, '.php')] = [$path];
         }
         return $bridges;

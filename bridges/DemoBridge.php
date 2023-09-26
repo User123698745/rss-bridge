@@ -6,7 +6,7 @@ class DemoBridge extends BridgeAbstract
     const NAME = 'DemoBridge';
     const URI = 'http://github.com/rss-bridge/rss-bridge';
     const DESCRIPTION = 'Bridge used for demos';
-    const CACHE_TIMEOUT = 15;
+    const CACHE_TIMEOUT = 15; //test2
 
     const PARAMETERS = [
         'testCheckbox' => [
