@@ -17,7 +17,6 @@ You can specify any website URL which serves data suited for display in RSS feed
 (for example a news blog).
 EOL, 'type' => 'text',
                 'exampleValue' => 'https://news.blizzard.com/en-en',
-                'defaultValue' => 'https://news.blizzard.com/en-en',
                 'required' => true
             ],
 
@@ -30,7 +29,6 @@ be the context nodes for all of the following expressions. This expression usual
 starts with a single forward slash.
 EOL, 'type' => 'text',
                 'exampleValue' => '/html/body/div/div[4]/div[2]/div[2]/div/div/section/ol/li/article',
-                'defaultValue' => '/html/body/div/div[4]/div[2]/div[2]/div/div/section/ol/li/article',
                 'required' => true
             ],
 
@@ -42,7 +40,6 @@ containing the article headline. It should start with a dot followed by two
 forward slashes, referring to any descendant nodes of the article item node.
 EOL, 'type' => 'text',
                 'exampleValue' => './/div/div[2]/h2',
-                'defaultValue' => './/div/div[2]/h2',
                 'required' => true
             ],
 
@@ -55,7 +52,6 @@ followed by two forward slashes, referring to any descendant nodes of the
 article item node.
 EOL, 'type' => 'text',
                 'exampleValue' => './/div[@class="ArticleListItem-description"]/div[@class="h6"]',
-                'defaultValue' => './/div[@class="ArticleListItem-description"]/div[@class="h6"]',
                 'required' => false
             ],
 
@@ -80,7 +76,6 @@ the article item node. Attributes can be selected by prepending an @ char
 before the attributes name.
 EOL, 'type' => 'text',
                 'exampleValue' => './/a[@class="ArticleLink ArticleLink"]/@href',
-                'defaultValue' => './/a[@class="ArticleLink ArticleLink"]/@href',
                 'required' => false
             ],
 
@@ -105,7 +100,6 @@ any descendant nodes of the article item node. Attributes can be
 selected by prepending an @ char before the attributes name.
 EOL, 'type' => 'text',
                 'exampleValue' => './/time[@class="ArticleListItem-footerTimestamp"]/@timestamp',
-                'defaultValue' => './/time[@class="ArticleListItem-footerTimestamp"]/@timestamp',
                 'required' => false
             ],
 
@@ -119,7 +113,6 @@ referring to any descendant nodes of the article item node. Attributes
 can be selected by prepending an @ char before the attributes name.
 EOL, 'type' => 'text',
                 'exampleValue' => './/div[@class="ArticleListItem-image"]/@style',
-                'defaultValue' => './/div[@class="ArticleListItem-image"]/@style',
                 'required' => false
             ],
 
@@ -134,8 +127,7 @@ forward slashes, referring to any descendant nodes of the article
 item node. Attributes can be selected by prepending an @ char
 before the attributes name.
 EOL, 'type' => 'text',
-                'exampleValue' => './/div[@class="ArticleListItem-label"]',
-                'defaultValue' => './/div[@class="ArticleListItem-label"]',
+                'exampleValue' => 'polyfill:function("replace", .//div[@class="ArticleListItem-label"], "(diablo immortal|warcraft rumble)", "$1 (Mobile)", "i")',
                 'required' => false
             ],
 
@@ -186,7 +178,7 @@ EOL, 'type' => 'checkbox',
      */
     protected function getExpressionItemContent()
     {
-        return urldecode($this->getInput('content'));
+        return urldecode($this->getInput('content') ?? '');
     }
 
     /**
@@ -204,7 +196,7 @@ EOL, 'type' => 'checkbox',
      */
     protected function getExpressionItemUri()
     {
-        return urldecode($this->getInput('uri'));
+        return urldecode($this->getInput('uri') ?? '');
     }
 
     /**
@@ -213,7 +205,7 @@ EOL, 'type' => 'checkbox',
      */
     protected function getExpressionItemAuthor()
     {
-        return urldecode($this->getInput('author'));
+        return urldecode($this->getInput('author') ?? '');
     }
 
     /**
@@ -222,7 +214,7 @@ EOL, 'type' => 'checkbox',
      */
     protected function getExpressionItemTimestamp()
     {
-        return urldecode($this->getInput('timestamp'));
+        return urldecode($this->getInput('timestamp') ?? '');
     }
 
     /**
@@ -232,7 +224,7 @@ EOL, 'type' => 'checkbox',
      */
     protected function getExpressionItemEnclosures()
     {
-        return urldecode($this->getInput('enclosures'));
+        return urldecode($this->getInput('enclosures') ?? '');
     }
 
     /**
@@ -241,7 +233,7 @@ EOL, 'type' => 'checkbox',
      */
     protected function getExpressionItemCategories()
     {
-        return urldecode($this->getInput('categories'));
+        return urldecode($this->getInput('categories') ?? '');
     }
 
     /**
