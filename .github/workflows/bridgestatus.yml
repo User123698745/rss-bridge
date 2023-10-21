@@ -1,0 +1,55 @@
+name: Bridge status overview
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * 4
+
+jobs:
+  update-comment:
+    name: Update comment
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup environment
+        run: |-
+          cp .github/prtester-requirements.txt requirements.txt
+      - name: Build docker image
+        run: |-
+          docker build --tag rssbridge .
+      - name: Run docker image
+        run: |-
+          docker run --detach --env RSSBRIDGE_system_enabled_bridges=* --env RSSBRIDGE_system_enable_debug_mode=true --publish 3000:80 rssbridge
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.7'
+          cache: 'pip'
+      - name: Install python requirements
+        run: |-
+          pip install --requirement requirements.txt
+      - name: Run prtester.py
+        run: |-
+          python .github/prtester.py --title "${{ vars.OVERVIEW_ISSUE_COMMENT_TITLE }}" --output-file "comment.md" --reduced-upload --instances "http://localhost:3000"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          path: comment.md
+          if-no-files-found: error
+      - name: Find comment
+        uses: peter-evans/find-comment@v2
+        id: find_comment
+        with:
+          issue-number: ${{ vars.OVERVIEW_ISSUE_ID }}
+          comment-author: 'github-actions[bot]'
+          body-includes: ${{ vars.OVERVIEW_ISSUE_COMMENT_TITLE }}
+      - name: Update comment
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ vars.OVERVIEW_ISSUE_ID }}
+          comment-id: ${{ steps.find_comment.outputs.comment-id }}
+          body-file: comment.md
+          edit-mode: replace
