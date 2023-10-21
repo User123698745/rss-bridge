@@ -3,9 +3,7 @@ name: Build Image on Commit and Release
 on:
   push:
     branches:
-      - 'master'
-    tags:
-      - '20*'
+      - 'disabled'
 
 env:
   DOCKERHUB_SLUG: rssbridge/rss-bridge
