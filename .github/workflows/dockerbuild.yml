@@ -3,12 +3,12 @@ name: Build Container Image
 on:
   push:
     branches:
-      - 'master'
+      - 'disabled'
     tags:
-      - '20*'
+      - 'disabled'
   pull_request:
     branches:
-      - 'master'
+      - '**'
     paths:
       - .github/workflows/**
       - Dockerfile
