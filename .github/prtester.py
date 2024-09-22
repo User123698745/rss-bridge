@@ -1,6 +1,8 @@
 ﻿import argparse
 import requests
 import re
+import base64
+import brotli
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import Iterable
@@ -139,14 +141,24 @@ def testBridges(instance: Instance, bridge_cards: Iterable, with_upload: bool, w
                 status_is_ok = status == '';
                 if status_is_ok:
                     status = '✔️'
-                if with_upload and (not with_reduced_upload or not status_is_ok):
-                    try:
-                        termpad_base_url = termpad_instance.rstrip("/") + '/'
-                        termpad_response = requests.post(url=termpad_base_url, data=page_text, timeout=10)
-                        termpad_url = termpad_response.text.strip()
-                        termpad_url = termpad_url.replace(termpad_base_url, termpad_base_url + 'raw/')
-                    except Exception as ex:
-                        print("[ERROR] failed to upload preview:", ex)
+                if not with_reduced_upload or not status_is_ok:
+                    page_text_base64 = base64.b64encode(brotli.compress(page_text)).decode('utf-8')
+                    termpad_url = f'https://data-iframe.pages.dev/#data:text/html;base64+br,{page_text_base64}'
+                    if with_upload:
+                        try:
+                            short_response = requests.post(
+                                url='https://lstu.fr/a',
+                                data={'lsturl': termpad_url},
+                                headers={'Accept': 'application/json'},
+                                timeout=15)
+                            try:
+                                short_response_json = short_response.json()
+                                if short_response_json['short']:
+                                    termpad_url = short_response_json['short']
+                            except Exception as ex:
+                                print(f'[ERROR] failed to read response {short_response.status_code} "{short_response.content}":', ex)
+                        except Exception as ex:
+                            print('[ERROR] failed to create short url:', ex)
             table_rows.append(f'| {bridge_name} | [{form_number} {context_name}{instance_suffix}]({termpad_url}) | {status} |')
             form_number += 1
     return table_rows
