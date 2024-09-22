@@ -165,7 +165,7 @@ if __name__ == '__main__':
     parser.add_argument('--instances', nargs='+')
     parser.add_argument('--no-upload', action='store_true')
     parser.add_argument('--reduced-upload', action='store_true')
-    parser.add_argument('--termpad-instance', default='https://termpad.com')
+    parser.add_argument('--termpad-instance', default='https://termpad.planethawleywood.com')
     parser.add_argument('--title', default='Pull request artifacts')
     parser.add_argument('--output-file', default=os.getcwd() + '/comment.txt')
     args = parser.parse_args()
