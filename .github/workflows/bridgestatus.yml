@@ -6,6 +6,17 @@ on:
     - cron: 0 0 * * 4
 
 jobs:
+  init:
+    name: Initialization
+    runs-on: ubuntu-latest
+    outputs:
+      WITH_UPLOAD: ${{ steps.check_upload.outputs.WITH_UPLOAD }}
+    steps:
+      - name: "Check upload token secret RSSTESTER_ACTION is set"
+        id: check_upload
+        run: |
+          echo "WITH_UPLOAD=$([ -n "${{ secrets.RSSTESTER_ACTION }}" ] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
+
   update-comment:
     name: Update comment
     runs-on: ubuntu-latest
@@ -33,10 +44,16 @@ jobs:
           pip install --requirement requirements.txt
       - name: Run prtester.py
         run: |-
-          python .github/prtester.py --title "${{ vars.OVERVIEW_ISSUE_COMMENT_TITLE }}" --output-file "comment.md" --reduced-upload --instances "http://localhost:3000"
+          python .github/prtester.py \
+            --title "${{ vars.OVERVIEW_ISSUE_COMMENT_TITLE }}" \
+            --instances "http://localhost:3000" \
+            --reduced-artifacts \
+            --artifacts-base-url "https://${{ github.repository_owner }}.github.io/${{ vars.ARTIFACTS_REPO || 'rss-bridge-tests' }}/status" \
+            --output-file "comment.md"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
+          name: artifacts
           path: |
             comment.md
             *.html
@@ -55,3 +72,41 @@ jobs:
           comment-id: ${{ steps.find_comment.outputs.comment-id }}
           body-file: comment.md
           edit-mode: replace
+
+  upload-artifacts:
+    name: Upload artifacts
+    runs-on: ubuntu-latest
+    needs:
+      - init
+      - update-comment
+    if: needs.init.outputs.WITH_UPLOAD == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ github.repository_owner }}/${{ vars.ARTIFACTS_REPO || 'rss-bridge-tests' }}"
+          ref: 'main'
+          token:  ${{ secrets.RSSTESTER_ACTION }}
+      - name: Setup git config
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "<>"
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+      - name: Move artifacts
+        run: |
+          mv ./comment.md ./README.md
+          DIRECTORY="$GITHUB_WORKSPACE/status"
+          rm -rf $DIRECTORY
+          mkdir -p $DIRECTORY
+          cd $DIRECTORY
+          cp $GITHUB_WORKSPACE/README.md ./README.md
+          mv $GITHUB_WORKSPACE/*.html .
+      - name: Commit and push artifacts
+        run: |
+          export COMMIT_MESSAGE="Updated status artifacts"
+          git add .
+          git commit -m "$COMMIT_MESSAGE" || exit 0
+          git push
