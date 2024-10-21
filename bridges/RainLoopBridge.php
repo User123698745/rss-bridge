@@ -3,7 +3,7 @@
 class RainLoopBridge extends BridgeAbstract
 {
     const MAINTAINER = 'Simounet';
-    const NAME = 'RainLoop';
+    const NAME = 'RainLoop test';
     const URI_BASE = 'https://www.rainloop.net';
     const URI = self::URI_BASE . '/changelog/';
     const CACHE_TIMEOUT = 21600; //6h
