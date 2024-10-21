@@ -3,7 +3,7 @@
 class ReutersBridge extends BridgeAbstract
 {
     const MAINTAINER = 'hollowleviathan, spraynard, csisoap';
-    const NAME = 'Reuters Bridge';
+    const NAME = 'Reuters Bridge test2';
     const URI = 'https://www.reuters.com';
     const CACHE_TIMEOUT = 1800; // 30min
     const DESCRIPTION = 'Returns news from Reuters';

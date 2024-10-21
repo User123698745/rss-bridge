@@ -3,7 +3,7 @@
 class FallGuysBridge extends BridgeAbstract
 {
     const MAINTAINER = 'User123698745';
-    const NAME = 'Fall Guys';
+    const NAME = 'Fall Guys test2';
     const BASE_URI = 'https://www.fallguys.com';
     const URI = self::BASE_URI . '/news';
     const CACHE_TIMEOUT = 600; // 10min
