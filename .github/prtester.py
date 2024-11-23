@@ -1,4 +1,5 @@
 ﻿import argparse
+import asyncio
 import requests
 import re
 from bs4 import BeautifulSoup
@@ -7,6 +8,7 @@ from typing import Iterable
 import os
 import glob
 import urllib
+from playwright.async_api import async_playwright, Page
 
 # This script is specifically written to be used in automation for https://github.com/RSS-Bridge/rss-bridge
 #
@@ -16,12 +18,13 @@ import urllib
 # the HTML file locally will actually work as designed.
 
 ARTIFACT_FILE_EXTENSION = '.html'
+ARTIFACT_IMAGE_FILE_EXTENSION = '.jpg'
 
 class Instance:
     name = ''
     url = ''
 
-def main(instances: Iterable[Instance], with_upload: bool, with_reduced_upload: bool, title: str, output_file: str):
+async def main(instances: Iterable[Instance], with_upload: bool, with_reduced_upload: bool, title: str, output_file: str):
     start_date = datetime.now()
 
     prid = os.getenv('PR')
@@ -29,31 +32,43 @@ def main(instances: Iterable[Instance], with_upload: bool, with_reduced_upload: 
     artifact_directory = os.getcwd()
     for file in glob.glob(f'*{ARTIFACT_FILE_EXTENSION}', root_dir=artifact_directory):
         os.remove(file)
+    for file in glob.glob(f'*{ARTIFACT_IMAGE_FILE_EXTENSION}', root_dir=artifact_directory):
+        os.remove(file)
 
-    table_rows = []
-    for instance in instances:
-        page = requests.get(instance.url) # Use python requests to grab the rss-bridge main page
-        soup = BeautifulSoup(page.content, "html.parser") # use bs4 to turn the page into soup
-        bridge_cards = soup.select('.bridge-card') # get a soup-formatted list of all bridges on the rss-bridge page
-        table_rows += testBridges(
-            instance=instance,
-            bridge_cards=bridge_cards,
-            with_upload=with_upload,
-            with_reduced_upload=with_reduced_upload,
-            artifact_directory=artifact_directory,
-            artifact_base_url=artifact_base_url) # run the main scraping code with the list of bridges
-    with open(file=output_file, mode='w+', encoding='utf-8') as file:
-        table_rows_value = '\n'.join(sorted(table_rows))
-        file.write(f'''
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch()
+        try:
+            browser_page = await browser.new_page()
+            try:
+                table_rows = []
+                for instance in instances:
+                    page = requests.get(instance.url) # Use python requests to grab the rss-bridge main page
+                    soup = BeautifulSoup(page.content, "html.parser") # use bs4 to turn the page into soup
+                    bridge_cards = soup.select('.bridge-card') # get a soup-formatted list of all bridges on the rss-bridge page
+                    table_rows += await testBridges(
+                        instance=instance,
+                        bridge_cards=bridge_cards,
+                        with_upload=with_upload,
+                        with_reduced_upload=with_reduced_upload,
+                        artifact_directory=artifact_directory,
+                        artifact_base_url=artifact_base_url,
+                        browser_page=browser_page) # run the main scraping code with the list of bridges
+                with open(file=output_file, mode='w+', encoding='utf-8') as file:
+                    table_rows_value = '\n'.join(sorted(table_rows))
+                    file.write(f'''
 ## {title}
 | Bridge | Context | Status |
 | - | - | - |
 {table_rows_value}
 
 *last change: {start_date.strftime("%A %Y-%m-%d %H:%M:%S")}*
-        '''.strip())
+                    '''.strip())
+            finally:
+                await browser_page.close()
+        finally:
+            await browser.close()
 
-def testBridges(instance: Instance, bridge_cards: Iterable, with_upload: bool, with_reduced_upload: bool, artifact_directory: str, artifact_base_url: str) -> Iterable:
+async def testBridges(instance: Instance, bridge_cards: Iterable, with_upload: bool, with_reduced_upload: bool, artifact_directory: str, artifact_base_url: str, browser_page: Page) -> Iterable:
     instance_suffix = ''
     if instance.name:
         instance_suffix = f' ({instance.name})'
@@ -161,6 +176,25 @@ def testBridges(instance: Instance, bridge_cards: Iterable, with_upload: bool, w
                     with open(file=f'{artifact_directory}/{filename}', mode='wb') as file:
                         file.write(page_text)
                     artifact_url = f'{artifact_base_url}/{filename}'
+                    try:
+                        await browser_page.goto(request_url)
+                        await browser_page.screenshot(
+                            full_page=True,
+                            path=f'{filename}{ARTIFACT_IMAGE_FILE_EXTENSION}',
+                            type='jpeg',
+                            quality=90,
+                            clip={
+                                'x': 0,
+                                'y': 0,
+                                'width': browser_page.viewport_size['width'],
+                                'height': min(
+                                    await browser_page.evaluate('document.documentElement.scrollHeight'),
+                                    7_000
+                                )
+                            }
+                        )
+                    except Exception as ex:
+                        print(f'[ERROR] can not screenshot "{request_url}" ({ex})')
             table_rows.append(f'| {bridge_name} | [{form_number} {context_name}{instance_suffix}]({artifact_url}) | {status} |')
             form_number += 1
     return table_rows
@@ -199,10 +233,10 @@ if __name__ == '__main__':
         instance.name = 'pr'
         instance.url = 'http://localhost:3001'
         instances.append(instance)
-    main(
+    asyncio.run(main(
         instances=instances,
         with_upload=not args.no_upload,
         with_reduced_upload=args.reduced_upload and not args.no_upload,
         title=args.title,
         output_file=args.output_file
-    );
+    ))
