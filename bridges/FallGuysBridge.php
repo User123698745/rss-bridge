@@ -49,7 +49,7 @@ class FallGuysBridge extends BridgeAbstract
             $contentImages = [$headerImage];
 
             $content = <<<HTML
-            <p>{$headerDescription}</p>
+            <p>Test 2 {$headerDescription}</p>
             <p><img src="{$headerImage}"></p>
             HTML;
 
