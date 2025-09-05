@@ -411,6 +411,7 @@ abstract class XPathAbstract extends BridgeAbstract
         defaultLinkTo($webPageHtml, $webPageHtml->baseURI ?? $this->feedUri);
 
         $xpath = new \DOMXPath($webPageHtml);
+        $this->registerXPathPolyfills($xpath);
 
         $this->feedName = $this->provideFeedTitle($xpath);
         $this->feedIcon = $this->provideFeedIcon($xpath);
@@ -660,5 +661,61 @@ abstract class XPathAbstract extends BridgeAbstract
     protected function generateItemId(array $item)
     {
         return null;
+    }
+
+    /**
+     * Adds xpath polyfills to the given DOMXPath instance
+     *
+     * @param DOMXPath $xpath
+     * @return void
+     */
+    protected function registerXPathPolyfills(DOMXPath $xpath)
+    {
+        $xpath->registerNamespace('polyfill', 'http://php.net/xpath');
+
+        // https://www.w3.org/TR/xpath-functions-31/#func-replace
+        function replace($input, $pattern, $replacement, $flags = null)
+        {
+            $exceptionSuffix = ' [xpath polyfill for fn:replace]';
+
+            if (is_array($input) && count($input) !== 1) {
+                throw new \Exception('input not supported' . $exceptionSuffix);
+            }
+            $input = is_array($input) ? $input[0] : $input;
+
+            if (is_string($input)) {
+                $text = $input;
+            } elseif ($input instanceof \DOMElement) {
+                $text = $input->textContent;
+            } elseif ($input instanceof \DOMAttr) {
+                $text = $input->value;
+            } elseif ($input instanceof \DOMText) {
+                $text = $input->wholeText;
+            } else {
+                throw new \Exception('input not supported' . $exceptionSuffix);
+            }
+
+            if (!is_string($pattern)) {
+                throw new \Exception('pattern (regular expression) must be a string' . $exceptionSuffix);
+            }
+
+            if (!is_string($replacement)) {
+                throw new \Exception('replacement must be a string' . $exceptionSuffix);
+            }
+
+            $flags ??= '';
+            if (!is_string($flags)) {
+                throw new \Exception('flags (regular expression) must be a string' . $exceptionSuffix);
+            }
+
+            $modified = preg_replace(sprintf('/%s/%s', $pattern, $flags), $replacement, $text);
+            if ($modified == null) {
+                throw new \Exception('pattern (regular expression) is invalid' . $exceptionSuffix);
+            }
+
+            return $modified;
+        }
+
+        $xpath->registerPHPFunctions(['replace']);
     }
 }
