@@ -53,6 +53,7 @@ class DRKBlutspendeBridge extends FeedExpander
 
     const IMAGE_PRIORITIES = [
         'DRK',
+        'Buffet',
         'Imbiss',
         'Obst',
     ];
@@ -175,6 +176,10 @@ class DRKBlutspendeBridge extends FeedExpander
             },
             $images
         );
+        if ($images !== []) {
+            list($title, $url) = $images[0];
+            $item['thumbnail'] = $url;
+        }
 
         return $item;
     }
