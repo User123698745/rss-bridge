@@ -192,10 +192,10 @@ class AtomFormat extends FormatAbstract
                 $entryCategory->setAttribute('term', $category);
             }
 
-            if (!empty($item->thumbnail)) {
+            if (!empty($itemArray['thumbnail'])) {
                 $thumbnail = $document->createElementNS(self::MRSS_NS, 'thumbnail');
                 $entry->appendChild($thumbnail);
-                $thumbnail->setAttribute('url', $item->thumbnail);
+                $thumbnail->setAttribute('url', $itemArray['thumbnail']);
             }
         }
 
